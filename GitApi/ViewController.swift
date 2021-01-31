@@ -7,32 +7,54 @@
 
 import UIKit
 
-class ViewController: UIViewController {
-    //Required Info
-    //Author
-    //Commit hash
-    //commit message
+class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+    
+    @IBOutlet var commitsTableView: UITableView!
+    
+    var results : [Response?] = []
     override func viewDidLoad() {
         super.viewDidLoad()
+        title = "Git Commits"
         getGitCommits()
+        //Add footer to remove empty cells
+        self.commitsTableView.tableFooterView = UIView()
     }
     
     func getGitCommits() {
-        let url = URL(string: "https://api.github.com/repos/alexnatic/GitApi/pulls/1/commits")
-        URLSession.shared.dataTask(with: url!) { (data, response, error) in
+        guard let url = URL(string: "https://api.github.com/repos/alexnatic/GitApi/pulls/1/commits") else { return }
+        URLSession.shared.dataTask(with: url) { (data, response, error) in
             guard let data = data, error == nil else {
                 print("Something went wrong")
                 return
             }
-            var results : [Response?] = []
             do {
-                results = try JSONDecoder().decode([Response].self, from: data)
+                self.results = try JSONDecoder().decode([Response].self, from: data)
             }
             catch {
-                print("Failed to decode \(error)")
+                print("Failed to decode: \(error)")
             }
-            print(results[0]?.commit.message ?? "No Results")
+
+            DispatchQueue.main.async {
+                self.commitsTableView.reloadData()
+            }
         }.resume()
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+         return self.results.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "Commit Cell")
+        let authorName = cell?.viewWithTag(1) as? UILabel
+        let commitMessage = cell?.viewWithTag(2) as? UILabel
+        let commitHash = cell?.viewWithTag(3) as? UILabel
+        
+        
+        authorName?.text = self.results[indexPath.row]?.commit.author.name
+        commitMessage?.text = self.results[indexPath.row]?.commit.message
+        commitHash?.text = self.results[indexPath.row]?.commit.tree.sha
+        return cell ?? UITableViewCell()
     }
     
     //Structs
