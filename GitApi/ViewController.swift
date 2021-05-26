@@ -11,7 +11,9 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     @IBOutlet var commitsTableView: UITableView!
     
-    var results : [Response?] = []
+    var results : [GitViewModel] = []
+    var errorStatus : Error? //For testing
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Git Commits"
@@ -27,8 +29,12 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 print("Something went wrong")
                 return
             }
+            self.errorStatus = error
             do {
-                self.results = try JSONDecoder().decode([Response].self, from: data)
+                let commits : [Response] = try JSONDecoder().decode([Response].self, from: data)
+                self.results = commits.map({ result in
+                    GitViewModel(results: result)
+                })
             }
             catch {
                 print("Failed to decode: \(error)")
@@ -37,8 +43,11 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             DispatchQueue.main.async {
                 self.commitsTableView.reloadData()
             }
+            
         }.resume()
     }
+    
+    //MARK: TableView Methods
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
          return self.results.count
@@ -49,15 +58,27 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         let authorName = cell?.viewWithTag(1) as? UILabel
         let commitMessage = cell?.viewWithTag(2) as? UILabel
         let commitHash = cell?.viewWithTag(3) as? UILabel
+        let commit = self.results[indexPath.row]
         
-        
-        authorName?.text = self.results[indexPath.row]?.commit.author.name
-        commitMessage?.text = self.results[indexPath.row]?.commit.message
-        commitHash?.text = self.results[indexPath.row]?.commit.tree.sha
+        authorName?.text = commit.author
+        commitMessage?.text = commit.message
+        commitHash?.text = commit.hash
         return cell ?? UITableViewCell()
     }
     
-    //Structs
+    //MARK: Structs
+    struct GitViewModel {
+        let author : String
+        let message : String
+        let hash : String
+        
+        init(results: Response){
+            self.author = results.commit.author.name
+            self.message = results.commit.message
+            self.hash = results.commit.tree.sha
+        }
+    }
+    
     struct Response : Codable {
         let commit : CommitResults
     }
